@@ -1,0 +1,2386 @@
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local StarterGui = game:GetService("StarterGui")
+
+local player = Players.LocalPlayer
+
+-- ========== NO CLIP ==========
+local noclip = false
+
+local noclipConnection
+local function startNoclip()
+	if noclipConnection then
+		noclipConnection:Disconnect()
+	end
+	noclipConnection = RunService.Stepped:Connect(function()
+		if noclip and player.Character then
+			for _, part in pairs(player.Character:GetDescendants()) do
+				if part:IsA("BasePart") then
+					part.CanCollide = false
+				end
+			end
+		end
+	end)
+end
+startNoclip()
+
+-- ========== ORIGINAL SCRIPT ==========
+local function getHumanoid()
+	local char = player.Character or player.CharacterAdded:Wait()
+	return char:WaitForChild("Humanoid")
+end
+
+local humanoid = getHumanoid()
+
+local walkSpeedConnection
+local jumpPowerConnection
+local originalSpeed = 16
+local originalJump = 50
+
+local infiniteJumpEnabled = false
+local infiniteJumpConnection
+
+local spaceJumpEnabled = false
+local spaceJumpConnection
+
+local flyEnabled = false
+local flyConnection
+local bodyVelocity
+local bodyGyro
+local flySpeed = 300
+local FlyKeyEnabled = true
+
+local THEME = {
+	Accent = Color3.fromRGB(0,150,255),
+	Text = Color3.fromRGB(255,255,255),
+	Success = Color3.fromRGB(0,200,100),
+	Error = Color3.fromRGB(255,60,60),
+	Warning = Color3.fromRGB(255,170,0)
+}
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Parent = player:WaitForChild("PlayerGui")
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Name = "LORLN_STATS"
+ScreenGui.IgnoreGuiInset = true
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.DisplayOrder = 2147483647
+
+local Main = Instance.new("Frame",ScreenGui)
+Main.Size = UDim2.new(0,0,0,0)
+Main.Position = UDim2.new(0.41,0,0.28,0)
+Main.BackgroundColor3 = Color3.fromRGB(0,0,0)
+Main.BorderSizePixel = 0
+Main.Active = true
+Main.Draggable = true
+Main.ClipsDescendants = false
+
+Instance.new("UICorner",Main).CornerRadius = UDim.new(0,12)
+
+local Stroke = Instance.new("UIStroke",Main)
+Stroke.Color = THEME.Accent
+Stroke.Transparency = 0.4
+Stroke.Thickness = 2
+
+-- Header
+local Header = Instance.new("Frame",Main)
+Header.Size = UDim2.new(1,0,0.11,0)
+Header.BackgroundColor3 = Color3.fromRGB(0,0,0)
+Header.BorderSizePixel = 0
+
+Instance.new("UICorner",Header).CornerRadius = UDim.new(0,12)
+
+local Title = Instance.new("TextLabel",Header)
+Title.Size = UDim2.new(0.55,0,1,0)
+Title.Position = UDim2.new(0.02,0,0,0)
+Title.Text = "LORLN LOR"
+Title.Font = Enum.Font.GothamBlack
+Title.TextScaled = true
+Title.TextColor3 = THEME.Accent
+Title.BackgroundTransparency = 1
+Title.TextXAlignment = Enum.TextXAlignment.Left
+
+local PKeyButton = Instance.new("TextButton",Header)
+PKeyButton.Size = UDim2.new(0.16,0,0.7,0)
+PKeyButton.Position = UDim2.new(0.60,0,0.15,0)
+PKeyButton.Text = "P ON"
+PKeyButton.Font = Enum.Font.GothamBold
+PKeyButton.TextScaled = true
+PKeyButton.BackgroundColor3 = Color3.fromRGB(0,60,30)
+PKeyButton.TextColor3 = THEME.Success
+PKeyButton.BorderSizePixel = 0
+PKeyButton.AutoButtonColor = false
+PKeyButton.ZIndex = 5
+Instance.new("UICorner",PKeyButton).CornerRadius = UDim.new(0,6)
+
+local CloseButton = Instance.new("TextButton",Header)
+CloseButton.Size = UDim2.new(0.15,0,0.7,0)
+CloseButton.Position = UDim2.new(0.83,0,0.15,0)
+CloseButton.Text = "X"
+CloseButton.Font = Enum.Font.GothamBold
+CloseButton.TextScaled = true
+CloseButton.BackgroundColor3 = Color3.fromRGB(40,10,10)
+CloseButton.TextColor3 = THEME.Error
+CloseButton.BorderSizePixel = 0
+CloseButton.AutoButtonColor = false
+Instance.new("UICorner",CloseButton).CornerRadius = UDim.new(0,6)
+
+CloseButton.MouseEnter:Connect(function()
+	TweenService:Create(CloseButton, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(80,20,20)}):Play()
+end)
+CloseButton.MouseLeave:Connect(function()
+	TweenService:Create(CloseButton, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(40,10,10)}):Play()
+end)
+
+-- Content
+local Content = Instance.new("Frame",Main)
+Content.Size = UDim2.new(1,0,0.89,0)
+Content.Position = UDim2.new(0,0,0.11,0)
+Content.BackgroundTransparency = 1
+
+-- ========== SPEED + RES ==========
+local SpeedFrame = Instance.new("Frame",Content)
+SpeedFrame.Size = UDim2.new(0.9,0,0.12,0)
+SpeedFrame.Position = UDim2.new(0.05,0,0.01,0)
+SpeedFrame.BackgroundColor3 = Color3.fromRGB(5,5,8)
+SpeedFrame.BorderSizePixel = 0
+
+Instance.new("UICorner",SpeedFrame).CornerRadius = UDim.new(0,8)
+Instance.new("UIStroke",SpeedFrame).Color = THEME.Accent
+
+local SpeedLabel = Instance.new("TextLabel",SpeedFrame)
+SpeedLabel.Size = UDim2.new(0.28,0,1,0)
+SpeedLabel.Position = UDim2.new(0.02,0,0,0)
+SpeedLabel.Text = "SPEED"
+SpeedLabel.Font = Enum.Font.GothamBold
+SpeedLabel.TextScaled = true
+SpeedLabel.TextColor3 = THEME.Text
+SpeedLabel.BackgroundTransparency = 1
+
+local SpeedBox = Instance.new("TextBox",SpeedFrame)
+SpeedBox.Size = UDim2.new(0.42,0,0.7,0)
+SpeedBox.Position = UDim2.new(0.31,0,0.15,0)
+SpeedBox.PlaceholderText = "Enter speed"
+SpeedBox.Text = ""
+SpeedBox.Font = Enum.Font.Gotham
+SpeedBox.TextScaled = true
+SpeedBox.BackgroundColor3 = Color3.fromRGB(30,30,40)
+SpeedBox.TextColor3 = THEME.Text
+SpeedBox.BorderSizePixel = 0
+Instance.new("UICorner",SpeedBox).CornerRadius = UDim.new(0,6)
+SpeedBox.ClearTextOnFocus = false
+
+local SpeedResButton = Instance.new("TextButton",SpeedFrame)
+SpeedResButton.Size = UDim2.new(0.2,0,0.7,0)
+SpeedResButton.Position = UDim2.new(0.76,0,0.15,0)
+SpeedResButton.Text = "RES"
+SpeedResButton.Font = Enum.Font.GothamBold
+SpeedResButton.TextScaled = true
+SpeedResButton.BackgroundColor3 = Color3.fromRGB(30,30,40)
+SpeedResButton.TextColor3 = THEME.Success
+SpeedResButton.BorderSizePixel = 0
+Instance.new("UICorner",SpeedResButton).CornerRadius = UDim.new(0,6)
+
+-- ========== JUMP + RES ==========
+local JumpFrame = Instance.new("Frame",Content)
+JumpFrame.Size = UDim2.new(0.9,0,0.12,0)
+JumpFrame.Position = UDim2.new(0.05,0,0.14,0)
+JumpFrame.BackgroundColor3 = Color3.fromRGB(5,5,8)
+JumpFrame.BorderSizePixel = 0
+
+Instance.new("UICorner",JumpFrame).CornerRadius = UDim.new(0,8)
+Instance.new("UIStroke",JumpFrame).Color = THEME.Accent
+
+local JumpLabel = Instance.new("TextLabel",JumpFrame)
+JumpLabel.Size = UDim2.new(0.28,0,1,0)
+JumpLabel.Position = UDim2.new(0.02,0,0,0)
+JumpLabel.Text = "JUMP"
+JumpLabel.Font = Enum.Font.GothamBold
+JumpLabel.TextScaled = true
+JumpLabel.TextColor3 = THEME.Text
+JumpLabel.BackgroundTransparency = 1
+
+local JumpBox = Instance.new("TextBox",JumpFrame)
+JumpBox.Size = UDim2.new(0.42,0,0.7,0)
+JumpBox.Position = UDim2.new(0.31,0,0.15,0)
+JumpBox.PlaceholderText = "Enter jump"
+JumpBox.Text = ""
+JumpBox.Font = Enum.Font.Gotham
+JumpBox.TextScaled = true
+JumpBox.BackgroundColor3 = Color3.fromRGB(30,30,40)
+JumpBox.TextColor3 = THEME.Text
+JumpBox.BorderSizePixel = 0
+Instance.new("UICorner",JumpBox).CornerRadius = UDim.new(0,6)
+JumpBox.ClearTextOnFocus = false
+
+local JumpResButton = Instance.new("TextButton",JumpFrame)
+JumpResButton.Size = UDim2.new(0.2,0,0.7,0)
+JumpResButton.Position = UDim2.new(0.76,0,0.15,0)
+JumpResButton.Text = "RES"
+JumpResButton.Font = Enum.Font.GothamBold
+JumpResButton.TextScaled = true
+JumpResButton.BackgroundColor3 = Color3.fromRGB(30,30,40)
+JumpResButton.TextColor3 = THEME.Success
+JumpResButton.BorderSizePixel = 0
+Instance.new("UICorner",JumpResButton).CornerRadius = UDim.new(0,6)
+
+-- ========== INFINITE JUMP ==========
+local InfiniteFrame = Instance.new("Frame",Content)
+InfiniteFrame.Size = UDim2.new(0.9,0,0.12,0)
+InfiniteFrame.Position = UDim2.new(0.05,0,0.27,0)
+InfiniteFrame.BackgroundColor3 = Color3.fromRGB(5,5,8)
+InfiniteFrame.BorderSizePixel = 0
+
+Instance.new("UICorner",InfiniteFrame).CornerRadius = UDim.new(0,8)
+Instance.new("UIStroke",InfiniteFrame).Color = THEME.Accent
+
+local InfiniteLabel = Instance.new("TextLabel",InfiniteFrame)
+InfiniteLabel.Size = UDim2.new(0.62,0,1,0)
+InfiniteLabel.Position = UDim2.new(0.02,0,0,0)
+InfiniteLabel.Text = "INFINITE JUMP"
+InfiniteLabel.Font = Enum.Font.GothamBold
+InfiniteLabel.TextScaled = true
+InfiniteLabel.TextColor3 = THEME.Text
+InfiniteLabel.BackgroundTransparency = 1
+InfiniteLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+local InfiniteButton = Instance.new("TextButton",InfiniteFrame)
+InfiniteButton.Size = UDim2.new(0.33,0,0.7,0)
+InfiniteButton.Position = UDim2.new(0.65,0,0.15,0)
+InfiniteButton.Text = "OFF"
+InfiniteButton.Font = Enum.Font.GothamBold
+InfiniteButton.TextScaled = true
+InfiniteButton.BackgroundColor3 = Color3.fromRGB(30,30,40)
+InfiniteButton.TextColor3 = THEME.Error
+InfiniteButton.BorderSizePixel = 0
+Instance.new("UICorner",InfiniteButton).CornerRadius = UDim.new(0,6)
+
+-- ========== INFINITE JUMP SPACE ==========
+local SpaceFrame = Instance.new("Frame",Content)
+SpaceFrame.Size = UDim2.new(0.9,0,0.12,0)
+SpaceFrame.Position = UDim2.new(0.05,0,0.40,0)
+SpaceFrame.BackgroundColor3 = Color3.fromRGB(5,5,8)
+SpaceFrame.BorderSizePixel = 0
+
+Instance.new("UICorner",SpaceFrame).CornerRadius = UDim.new(0,8)
+Instance.new("UIStroke",SpaceFrame).Color = THEME.Accent
+
+local SpaceLabel = Instance.new("TextLabel",SpaceFrame)
+SpaceLabel.Size = UDim2.new(0.62,0,1,0)
+SpaceLabel.Position = UDim2.new(0.02,0,0,0)
+SpaceLabel.Text = "INFINITE JUMP SPACE"
+SpaceLabel.Font = Enum.Font.GothamBold
+SpaceLabel.TextScaled = true
+SpaceLabel.TextColor3 = THEME.Text
+SpaceLabel.BackgroundTransparency = 1
+SpaceLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+local SpaceButton = Instance.new("TextButton",SpaceFrame)
+SpaceButton.Size = UDim2.new(0.33,0,0.7,0)
+SpaceButton.Position = UDim2.new(0.65,0,0.15,0)
+SpaceButton.Text = "OFF"
+SpaceButton.Font = Enum.Font.GothamBold
+SpaceButton.TextScaled = true
+SpaceButton.BackgroundColor3 = Color3.fromRGB(30,30,40)
+SpaceButton.TextColor3 = THEME.Error
+SpaceButton.BorderSizePixel = 0
+Instance.new("UICorner",SpaceButton).CornerRadius = UDim.new(0,6)
+
+-- ========== NOCLIP ==========
+local NoclipFrame = Instance.new("Frame",Content)
+NoclipFrame.Size = UDim2.new(0.9,0,0.12,0)
+NoclipFrame.Position = UDim2.new(0.05,0,0.53,0)
+NoclipFrame.BackgroundColor3 = Color3.fromRGB(5,5,8)
+NoclipFrame.BorderSizePixel = 0
+
+Instance.new("UICorner",NoclipFrame).CornerRadius = UDim.new(0,8)
+Instance.new("UIStroke",NoclipFrame).Color = THEME.Accent
+
+local NoclipLabel = Instance.new("TextLabel",NoclipFrame)
+NoclipLabel.Size = UDim2.new(0.28,0,1,0)
+NoclipLabel.Position = UDim2.new(0.02,0,0,0)
+NoclipLabel.Text = "NOCLIP"
+NoclipLabel.Font = Enum.Font.GothamBold
+NoclipLabel.TextScaled = true
+NoclipLabel.TextColor3 = THEME.Text
+NoclipLabel.BackgroundTransparency = 1
+
+local NoclipButton = Instance.new("TextButton",NoclipFrame)
+NoclipButton.Size = UDim2.new(0.18,0,0.7,0)
+NoclipButton.Position = UDim2.new(0.33,0,0.15,0)
+NoclipButton.Text = "OFF"
+NoclipButton.Font = Enum.Font.GothamBold
+NoclipButton.TextScaled = true
+NoclipButton.BackgroundColor3 = Color3.fromRGB(30,30,40)
+NoclipButton.TextColor3 = THEME.Error
+NoclipButton.BorderSizePixel = 0
+Instance.new("UICorner",NoclipButton).CornerRadius = UDim.new(0,6)
+
+local NoclipPlayersButton = Instance.new("TextButton",NoclipFrame)
+NoclipPlayersButton.Size = UDim2.new(0.43,0,0.7,0)
+NoclipPlayersButton.Position = UDim2.new(0.54,0,0.15,0)
+NoclipPlayersButton.Text = "PLAYERS OFF"
+NoclipPlayersButton.Font = Enum.Font.GothamBold
+NoclipPlayersButton.TextScaled = true
+NoclipPlayersButton.BackgroundColor3 = Color3.fromRGB(30,30,40)
+NoclipPlayersButton.TextColor3 = THEME.Error
+NoclipPlayersButton.BorderSizePixel = 0
+Instance.new("UICorner",NoclipPlayersButton).CornerRadius = UDim.new(0,6)
+
+-- ========== FLY ==========
+local FlyFrame = Instance.new("Frame",Content)
+FlyFrame.Size = UDim2.new(0.9,0,0.12,0)
+FlyFrame.Position = UDim2.new(0.05,0,0.66,0)
+FlyFrame.BackgroundColor3 = Color3.fromRGB(5,5,8)
+FlyFrame.BorderSizePixel = 0
+
+Instance.new("UICorner",FlyFrame).CornerRadius = UDim.new(0,8)
+Instance.new("UIStroke",FlyFrame).Color = THEME.Accent
+
+local FlyLabel = Instance.new("TextLabel",FlyFrame)
+FlyLabel.Size = UDim2.new(0.15,0,1,0)
+FlyLabel.Position = UDim2.new(0.02,0,0,0)
+FlyLabel.Text = "FLY"
+FlyLabel.Font = Enum.Font.GothamBold
+FlyLabel.TextScaled = true
+FlyLabel.TextColor3 = THEME.Text
+FlyLabel.BackgroundTransparency = 1
+
+local FlyButton = Instance.new("TextButton",FlyFrame)
+FlyButton.Size = UDim2.new(0.13,0,0.7,0)
+FlyButton.Position = UDim2.new(0.18,0,0.15,0)
+FlyButton.Text = "OFF"
+FlyButton.Font = Enum.Font.GothamBold
+FlyButton.TextScaled = true
+FlyButton.BackgroundColor3 = Color3.fromRGB(30,30,40)
+FlyButton.TextColor3 = THEME.Error
+FlyButton.BorderSizePixel = 0
+FlyButton.AutoButtonColor = false
+Instance.new("UICorner",FlyButton).CornerRadius = UDim.new(0,6)
+
+local FlyKeyButton = Instance.new("TextButton",FlyFrame)
+FlyKeyButton.Size = UDim2.new(0.22,0,0.7,0)
+FlyKeyButton.Position = UDim2.new(0.32,0,0.15,0)
+FlyKeyButton.Text = "KEY ON - F"
+FlyKeyButton.Font = Enum.Font.GothamBold
+FlyKeyButton.TextScaled = true
+FlyKeyButton.BackgroundColor3 = Color3.fromRGB(0,60,30)
+FlyKeyButton.TextColor3 = THEME.Success
+FlyKeyButton.BorderSizePixel = 0
+FlyKeyButton.AutoButtonColor = false
+Instance.new("UICorner",FlyKeyButton).CornerRadius = UDim.new(0,6)
+
+local FlyMinus = Instance.new("TextButton",FlyFrame)
+FlyMinus.Size = UDim2.new(0.08,0,0.7,0)
+FlyMinus.Position = UDim2.new(0.56,0,0.15,0)
+FlyMinus.Text = "-"
+FlyMinus.Font = Enum.Font.GothamBold
+FlyMinus.TextScaled = true
+FlyMinus.BackgroundColor3 = Color3.fromRGB(30,30,40)
+FlyMinus.TextColor3 = THEME.Accent
+FlyMinus.BorderSizePixel = 0
+Instance.new("UICorner",FlyMinus).CornerRadius = UDim.new(0,6)
+
+local FlySpeedBox = Instance.new("TextBox",FlyFrame)
+FlySpeedBox.Size = UDim2.new(0.16,0,0.7,0)
+FlySpeedBox.Position = UDim2.new(0.65,0,0.15,0)
+FlySpeedBox.Text = "300"
+FlySpeedBox.Font = Enum.Font.Gotham
+FlySpeedBox.TextScaled = true
+FlySpeedBox.BackgroundColor3 = Color3.fromRGB(30,30,40)
+FlySpeedBox.TextColor3 = THEME.Text
+FlySpeedBox.BorderSizePixel = 0
+Instance.new("UICorner",FlySpeedBox).CornerRadius = UDim.new(0,6)
+
+local FlyPlus = Instance.new("TextButton",FlyFrame)
+FlyPlus.Size = UDim2.new(0.08,0,0.7,0)
+FlyPlus.Position = UDim2.new(0.82,0,0.15,0)
+FlyPlus.Text = "+"
+FlyPlus.Font = Enum.Font.GothamBold
+FlyPlus.TextScaled = true
+FlyPlus.BackgroundColor3 = Color3.fromRGB(30,30,40)
+FlyPlus.TextColor3 = THEME.Accent
+FlyPlus.BorderSizePixel = 0
+Instance.new("UICorner",FlyPlus).CornerRadius = UDim.new(0,6)
+
+-- ========== STATUS + PLAYERS BUTTON ==========
+local BottomRow = Instance.new("Frame",Content)
+BottomRow.Size = UDim2.new(0.9,0,0.12,0)
+BottomRow.Position = UDim2.new(0.05,0,0.79,0)
+BottomRow.BackgroundTransparency = 1
+
+local StatusFrame = Instance.new("Frame",BottomRow)
+StatusFrame.Size = UDim2.new(0.68,0,1,0)
+StatusFrame.Position = UDim2.new(0,0,0,0)
+StatusFrame.BackgroundColor3 = Color3.fromRGB(5,5,8)
+StatusFrame.BorderSizePixel = 0
+
+Instance.new("UICorner",StatusFrame).CornerRadius = UDim.new(0,8)
+Instance.new("UIStroke",StatusFrame).Color = THEME.Accent
+
+local StatusDot = Instance.new("TextLabel",StatusFrame)
+StatusDot.Size = UDim2.new(0.12,0,1,0)
+StatusDot.Text = "●"
+StatusDot.Font = Enum.Font.GothamBold
+StatusDot.TextScaled = true
+StatusDot.TextColor3 = THEME.Success
+StatusDot.BackgroundTransparency = 1
+
+local StatusLabel = Instance.new("TextLabel",StatusFrame)
+StatusLabel.Size = UDim2.new(0.88,0,1,0)
+StatusLabel.Position = UDim2.new(0.12,0,0,0)
+StatusLabel.Text = "Ready"
+StatusLabel.Font = Enum.Font.GothamBold
+StatusLabel.TextScaled = true
+StatusLabel.TextColor3 = Color3.fromRGB(180,180,200)
+StatusLabel.BackgroundTransparency = 1
+StatusLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+local TeleportPlayersButton = Instance.new("TextButton",BottomRow)
+TeleportPlayersButton.Size = UDim2.new(0.3,0,1,0)
+TeleportPlayersButton.Position = UDim2.new(0.7,0,0,0)
+TeleportPlayersButton.Text = "PLAYERS"
+TeleportPlayersButton.Font = Enum.Font.GothamBold
+TeleportPlayersButton.TextScaled = true
+TeleportPlayersButton.BackgroundColor3 = Color3.fromRGB(5,5,8)
+TeleportPlayersButton.TextColor3 = THEME.Accent
+TeleportPlayersButton.BorderSizePixel = 0
+Instance.new("UICorner",TeleportPlayersButton).CornerRadius = UDim.new(0,8)
+Instance.new("UIStroke",TeleportPlayersButton).Color = THEME.Accent
+
+local function updateStatus(text, type)
+	StatusLabel.Text = text
+	
+	if type == "success" then
+		StatusLabel.TextColor3 = THEME.Success
+		StatusDot.TextColor3 = THEME.Success
+	elseif type == "error" then
+		StatusLabel.TextColor3 = THEME.Error
+		StatusDot.TextColor3 = THEME.Error
+	elseif type == "warning" then
+		StatusLabel.TextColor3 = THEME.Warning
+		StatusDot.TextColor3 = THEME.Warning
+	else
+		StatusLabel.TextColor3 = Color3.fromRGB(180,180,200)
+		StatusDot.TextColor3 = THEME.Accent
+	end
+	
+	task.delay(2, function()
+		if StatusLabel.Text == text then
+			StatusLabel.Text = "Ready"
+			StatusLabel.TextColor3 = Color3.fromRGB(180,180,200)
+			StatusDot.TextColor3 = THEME.Success
+		end
+	end)
+end
+
+-- ========== SPEED ==========
+SpeedBox.FocusLost:Connect(function(enter)
+	if enter then
+		local num = tonumber(SpeedBox.Text)
+		if num then
+			originalSpeed = num
+			humanoid.WalkSpeed = num
+			
+			if walkSpeedConnection then
+				walkSpeedConnection:Disconnect()
+			end
+			
+			walkSpeedConnection = humanoid:GetPropertyChangedSignal("WalkSpeed"):Connect(function()
+				if humanoid.WalkSpeed ~= originalSpeed then
+					humanoid.WalkSpeed = originalSpeed
+				end
+			end)
+			
+			updateStatus("Speed set to "..num, "success")
+		elseif SpeedBox.Text ~= "" then
+			updateStatus("Invalid speed", "error")
+			SpeedBox.Text = ""
+		end
+	end
+end)
+
+SpeedResButton.MouseButton1Click:Connect(function()
+	originalSpeed = 16
+	SpeedBox.Text = "16"
+	humanoid.WalkSpeed = 16
+	
+	if walkSpeedConnection then
+		walkSpeedConnection:Disconnect()
+	end
+	walkSpeedConnection = humanoid:GetPropertyChangedSignal("WalkSpeed"):Connect(function()
+		if humanoid.WalkSpeed ~= originalSpeed then
+			humanoid.WalkSpeed = originalSpeed
+		end
+	end)
+	
+	SpeedResButton.TextColor3 = THEME.Error
+	task.delay(0.5, function()
+		SpeedResButton.TextColor3 = THEME.Success
+	end)
+	
+	updateStatus("Speed reset to 16", "warning")
+end)
+
+-- ========== JUMP ==========
+JumpBox.FocusLost:Connect(function(enter)
+	if enter then
+		local num = tonumber(JumpBox.Text)
+		if num then
+			originalJump = num
+			humanoid.UseJumpPower = true
+			humanoid.JumpPower = num
+			humanoid.JumpHeight = num/7
+			
+			if jumpPowerConnection then
+				jumpPowerConnection:Disconnect()
+			end
+			
+			jumpPowerConnection = humanoid:GetPropertyChangedSignal("JumpPower"):Connect(function()
+				if humanoid.JumpPower ~= originalJump then
+					humanoid.JumpPower = originalJump
+				end
+			end)
+			
+			updateStatus("Jump set to "..num, "success")
+		elseif JumpBox.Text ~= "" then
+			updateStatus("Invalid jump", "error")
+			JumpBox.Text = ""
+		end
+	end
+end)
+
+JumpResButton.MouseButton1Click:Connect(function()
+	originalJump = 50
+	JumpBox.Text = "50"
+	humanoid.UseJumpPower = true
+	humanoid.JumpPower = 50
+	humanoid.JumpHeight = 50/7
+	
+	if jumpPowerConnection then
+		jumpPowerConnection:Disconnect()
+	end
+	jumpPowerConnection = humanoid:GetPropertyChangedSignal("JumpPower"):Connect(function()
+		if humanoid.JumpPower ~= originalJump then
+			humanoid.JumpPower = originalJump
+		end
+	end)
+	
+	JumpResButton.TextColor3 = THEME.Error
+	task.delay(0.5, function()
+		JumpResButton.TextColor3 = THEME.Success
+	end)
+	
+	updateStatus("Jump reset to 50", "warning")
+end)
+
+-- ========== NOCLIP ==========
+local function enableNoclip()
+	if noclip then return end
+	noclip = true
+	NoclipButton.Text = "ON"
+	NoclipButton.TextColor3 = THEME.Success
+	NoclipButton.BackgroundColor3 = Color3.fromRGB(0,60,30)
+	updateStatus("Noclip enabled", "success")
+end
+
+local function disableNoclip()
+	if not noclip then return end
+	noclip = false
+	NoclipButton.Text = "OFF"
+	NoclipButton.TextColor3 = THEME.Error
+	NoclipButton.BackgroundColor3 = Color3.fromRGB(30,30,40)
+	updateStatus("Noclip disabled", "warning")
+	
+	if player.Character then
+		for _, part in pairs(player.Character:GetDescendants()) do
+			if part:IsA("BasePart") then
+				part.CanCollide = true
+			end
+		end
+		local head = player.Character:FindFirstChild("Head")
+		if head and head:IsA("BasePart") then
+			head.CanCollide = false
+		end
+	end
+end
+
+NoclipButton.MouseButton1Click:Connect(function()
+	if noclip then
+		disableNoclip()
+	else
+		enableNoclip()
+	end
+end)
+
+-- ========== NOCLIP PLAYERS ==========
+local noclipPlayers = false
+local noclipPlayersConnection
+local noclipCharConnections = {}
+
+local function applyNoclipToPlayer(targetPlayer)
+	if not targetPlayer or not targetPlayer.Character then return end
+	local char = targetPlayer.Character
+	local hum = char:FindFirstChildOfClass("Humanoid")
+	if not hum or hum.Health <= 0 then return end
+	
+	for _, partName in ipairs({"HumanoidRootPart", "Head", "Torso", "UpperTorso", "LowerTorso", "Left Arm", "Right Arm", "Left Leg", "Right Leg", "LeftUpperArm", "LeftLowerArm", "RightUpperArm", "RightLowerArm", "LeftUpperLeg", "LeftLowerLeg", "RightUpperLeg", "RightLowerLeg"}) do
+		local part = char:FindFirstChild(partName)
+		if part and part:IsA("BasePart") then
+			part.CanCollide = false
+		end
+	end
+end
+
+local function removeNoclipFromPlayer(targetPlayer)
+	if not targetPlayer or not targetPlayer.Character then return end
+	local char = targetPlayer.Character
+	
+	for _, part in pairs(char:GetDescendants()) do
+		if part:IsA("BasePart") then
+			part.CanCollide = true
+		end
+	end
+	local head = char:FindFirstChild("Head")
+	if head and head:IsA("BasePart") then
+		head.CanCollide = false
+	end
+end
+
+local function hookPlayer(targetPlayer)
+	local conn
+	conn = targetPlayer.CharacterAdded:Connect(function()
+		if noclipPlayers then
+			task.wait(0.1)
+			applyNoclipToPlayer(targetPlayer)
+		end
+	end)
+	table.insert(noclipCharConnections, conn)
+end
+
+local function startNoclipPlayersLoop()
+	if noclipPlayersConnection then
+		noclipPlayersConnection:Disconnect()
+	end
+	
+	for _, otherPlayer in pairs(Players:GetPlayers()) do
+		if otherPlayer ~= player then
+			applyNoclipToPlayer(otherPlayer)
+		end
+	end
+	
+	for _, p in pairs(Players:GetPlayers()) do
+		hookPlayer(p)
+	end
+	
+	noclipPlayersConnection = RunService.Stepped:Connect(function()
+		if not noclipPlayers then return end
+		for _, otherPlayer in pairs(Players:GetPlayers()) do
+			if otherPlayer ~= player then
+				applyNoclipToPlayer(otherPlayer)
+			end
+		end
+	end)
+end
+
+local function enableNoclipPlayers()
+	if noclipPlayers then return end
+	noclipPlayers = true
+	NoclipPlayersButton.Text = "PLAYERS ON"
+	NoclipPlayersButton.TextColor3 = THEME.Success
+	NoclipPlayersButton.BackgroundColor3 = Color3.fromRGB(0,60,30)
+	startNoclipPlayersLoop()
+	updateStatus("Players noclip enabled", "success")
+end
+
+local function disableNoclipPlayers()
+	if not noclipPlayers then return end
+	noclipPlayers = false
+	NoclipPlayersButton.Text = "PLAYERS OFF"
+	NoclipPlayersButton.TextColor3 = THEME.Error
+	NoclipPlayersButton.BackgroundColor3 = Color3.fromRGB(30,30,40)
+	
+	if noclipPlayersConnection then
+		noclipPlayersConnection:Disconnect()
+		noclipPlayersConnection = nil
+	end
+	
+	for _, conn in pairs(noclipCharConnections) do
+		if conn then conn:Disconnect() end
+	end
+	noclipCharConnections = {}
+	
+	for _, otherPlayer in pairs(Players:GetPlayers()) do
+		if otherPlayer ~= player then
+			removeNoclipFromPlayer(otherPlayer)
+		end
+	end
+	
+	updateStatus("Players noclip disabled", "warning")
+end
+
+NoclipPlayersButton.MouseButton1Click:Connect(function()
+	if noclipPlayers then
+		disableNoclipPlayers()
+	else
+		enableNoclipPlayers()
+	end
+end)
+
+-- ========== FLY FUNCTION ==========
+local function startFly()
+	local char = player.Character
+	if not char then return end
+	
+	local hrp = char:FindFirstChild("HumanoidRootPart")
+	if not hrp then return end
+	
+	local humanoidChar = char:FindFirstChild("Humanoid")
+	if not humanoidChar then return end
+	
+	bodyVelocity = Instance.new("BodyVelocity")
+	bodyVelocity.MaxForce = Vector3.new(1e6, 1e6, 1e6)
+	bodyVelocity.P = 1e5
+	bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+	
+	bodyGyro = Instance.new("BodyGyro")
+	bodyGyro.MaxTorque = Vector3.new(1e6, 1e6, 1e6)
+	bodyGyro.P = 1e5
+	bodyGyro.CFrame = hrp.CFrame
+	
+	bodyVelocity.Parent = hrp
+	bodyGyro.Parent = hrp
+	
+	humanoidChar.PlatformStand = true
+	
+	local moveDirection = Vector3.new()
+	
+	local function updateFly()
+		if not flyEnabled or not char or not hrp then return end
+		
+		local camera = workspace.CurrentCamera
+		local forwardVector = camera.CFrame.LookVector
+		local rightVector = camera.CFrame.RightVector
+		local upVector = Vector3.new(0, 1, 0)
+		
+		moveDirection = Vector3.new()
+		
+		if UserInputService:IsKeyDown(Enum.KeyCode.W) then
+			moveDirection = moveDirection + forwardVector
+		end
+		if UserInputService:IsKeyDown(Enum.KeyCode.S) then
+			moveDirection = moveDirection - forwardVector
+		end
+		if UserInputService:IsKeyDown(Enum.KeyCode.A) then
+			moveDirection = moveDirection - rightVector
+		end
+		if UserInputService:IsKeyDown(Enum.KeyCode.D) then
+			moveDirection = moveDirection + rightVector
+		end
+		if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+			moveDirection = moveDirection + upVector
+		end
+		if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) or UserInputService:IsKeyDown(Enum.KeyCode.RightControl) then
+			moveDirection = moveDirection - upVector
+		end
+		
+		if moveDirection.Magnitude > 0 then
+			moveDirection = moveDirection.Unit * flySpeed
+		end
+		
+		bodyVelocity.Velocity = moveDirection
+		bodyGyro.CFrame = camera.CFrame
+	end
+	
+	flyConnection = RunService.Heartbeat:Connect(updateFly)
+end
+
+local function stopFly()
+	if flyConnection then
+		flyConnection:Disconnect()
+		flyConnection = nil
+	end
+	
+	local char = player.Character
+	if char then
+		local hrp = char:FindFirstChild("HumanoidRootPart")
+		local humanoidChar = char:FindFirstChild("Humanoid")
+		
+		if bodyVelocity then
+			bodyVelocity:Destroy()
+			bodyVelocity = nil
+		end
+		
+		if bodyGyro then
+			bodyGyro:Destroy()
+			bodyGyro = nil
+		end
+		
+		if humanoidChar then
+			humanoidChar.PlatformStand = false
+			humanoidChar:ChangeState(Enum.HumanoidStateType.Running)
+		end
+	end
+end
+
+local function enableFly()
+	if flyEnabled then return end
+	
+	flyEnabled = true
+	FlyButton.Text = "ON"
+	FlyButton.TextColor3 = THEME.Success
+	FlyButton.BackgroundColor3 = Color3.fromRGB(0,60,30)
+	
+	FlySpeedBox.Text = tostring(flySpeed)
+	
+	startFly()
+	
+	updateStatus("Flight enabled - WASD + Space + Ctrl", "success")
+end
+
+local function disableFly()
+	if not flyEnabled then return end
+	
+	flyEnabled = false
+	stopFly()
+	
+	FlyButton.Text = "OFF"
+	FlyButton.TextColor3 = THEME.Error
+	FlyButton.BackgroundColor3 = Color3.fromRGB(30,30,40)
+	
+	updateStatus("Flight disabled", "warning")
+end
+
+FlyButton.MouseButton1Click:Connect(function()
+	if flyEnabled then
+		disableFly()
+	else
+		enableFly()
+	end
+end)
+
+local function updateKeyButton()
+	if FlyKeyEnabled then
+		FlyKeyButton.Text = "KEY ON - F"
+		FlyKeyButton.TextColor3 = THEME.Success
+		FlyKeyButton.BackgroundColor3 = Color3.fromRGB(0,60,30)
+	else
+		FlyKeyButton.Text = "KEY OFF - F"
+		FlyKeyButton.TextColor3 = THEME.Error
+		FlyKeyButton.BackgroundColor3 = Color3.fromRGB(30,30,40)
+	end
+end
+
+FlyKeyButton.MouseButton1Click:Connect(function()
+	FlyKeyEnabled = not FlyKeyEnabled
+	updateKeyButton()
+	updateStatus("Key F " .. (FlyKeyEnabled and "enabled" or "disabled"), FlyKeyEnabled and "success" or "warning")
+end)
+
+local flyKeyConnection
+flyKeyConnection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if gameProcessed then return end
+	if not FlyKeyEnabled then return end
+	if input.KeyCode == Enum.KeyCode.F then
+		if flyEnabled then
+			disableFly()
+		else
+			enableFly()
+		end
+	end
+end)
+
+FlyMinus.MouseButton1Click:Connect(function()
+	flySpeed = math.max(10, flySpeed - 5)
+	FlySpeedBox.Text = tostring(flySpeed)
+	updateStatus("Flight speed: "..flySpeed, "success")
+end)
+
+FlyPlus.MouseButton1Click:Connect(function()
+	flySpeed = math.min(10000, flySpeed + 5)
+	FlySpeedBox.Text = tostring(flySpeed)
+	updateStatus("Flight speed: "..flySpeed, "success")
+end)
+
+FlySpeedBox.FocusLost:Connect(function(enter)
+	if enter then
+		local num = tonumber(FlySpeedBox.Text)
+		if num and num > 0 then
+			flySpeed = math.clamp(num, 10, 10000)
+			FlySpeedBox.Text = tostring(flySpeed)
+			updateStatus("Flight speed set to "..flySpeed, "success")
+		else
+			FlySpeedBox.Text = tostring(flySpeed)
+		end
+	end
+end)
+
+-- ========== INFINITE JUMP ==========
+local function startInfiniteJump()
+	if infiniteJumpConnection then
+		infiniteJumpConnection:Disconnect()
+	end
+	
+	infiniteJumpConnection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
+		if gameProcessed then return end
+		if not infiniteJumpEnabled then return end
+		if input.KeyCode ~= Enum.KeyCode.Space then return end
+		
+		local char = player.Character
+		if not char then return end
+		
+		local humanoidChar = char:FindFirstChild("Humanoid")
+		local rootPart = char:FindFirstChild("HumanoidRootPart")
+		
+		if humanoidChar and rootPart then
+			humanoidChar:ChangeState(Enum.HumanoidStateType.Jumping)
+			rootPart.Velocity = Vector3.new(rootPart.Velocity.X, originalJump, rootPart.Velocity.Z)
+		end
+	end)
+end
+
+local function enableInfiniteJump()
+	if infiniteJumpEnabled then return end
+	
+	infiniteJumpEnabled = true
+	InfiniteButton.Text = "ON"
+	InfiniteButton.TextColor3 = THEME.Success
+	startInfiniteJump()
+	updateStatus("Infinite Jump enabled - Press SPACE", "success")
+end
+
+local function disableInfiniteJump()
+	if not infiniteJumpEnabled then return end
+	
+	infiniteJumpEnabled = false
+	
+	if infiniteJumpConnection then
+		infiniteJumpConnection:Disconnect()
+		infiniteJumpConnection = nil
+	end
+	
+	InfiniteButton.Text = "OFF"
+	InfiniteButton.TextColor3 = THEME.Error
+	updateStatus("Infinite Jump disabled", "warning")
+end
+
+InfiniteButton.MouseButton1Click:Connect(function()
+	if infiniteJumpEnabled then
+		disableInfiniteJump()
+	else
+		enableInfiniteJump()
+	end
+end)
+
+-- ========== INFINITE JUMP SPACE ==========
+local function startSpaceJump()
+	if spaceJumpConnection then
+		spaceJumpConnection:Disconnect()
+	end
+	
+	spaceJumpConnection = RunService.Heartbeat:Connect(function()
+		if not spaceJumpEnabled then return end
+		if not UserInputService:IsKeyDown(Enum.KeyCode.Space) then return end
+		
+		local char = player.Character
+		if not char then return end
+		
+		local humanoidChar = char:FindFirstChild("Humanoid")
+		local rootPart = char:FindFirstChild("HumanoidRootPart")
+		
+		if humanoidChar and rootPart then
+			humanoidChar:ChangeState(Enum.HumanoidStateType.Jumping)
+			rootPart.Velocity = Vector3.new(rootPart.Velocity.X, originalJump, rootPart.Velocity.Z)
+		end
+	end)
+end
+
+local function enableSpaceJump()
+	if spaceJumpEnabled then return end
+	
+	spaceJumpEnabled = true
+	SpaceButton.Text = "ON"
+	SpaceButton.TextColor3 = THEME.Success
+	startSpaceJump()
+	updateStatus("Infinite Jump Space enabled - Hold SPACE", "success")
+end
+
+local function disableSpaceJump()
+	if not spaceJumpEnabled then return end
+	
+	spaceJumpEnabled = false
+	
+	if spaceJumpConnection then
+		spaceJumpConnection:Disconnect()
+		spaceJumpConnection = nil
+	end
+	
+	SpaceButton.Text = "OFF"
+	SpaceButton.TextColor3 = THEME.Error
+	updateStatus("Infinite Jump Space disabled", "warning")
+end
+
+SpaceButton.MouseButton1Click:Connect(function()
+	if spaceJumpEnabled then
+		disableSpaceJump()
+	else
+		enableSpaceJump()
+	end
+end)
+
+-- ==================================================
+-- ========== WHITELIST (Players we never TP to) ==========
+-- ==================================================
+local whitelist = {}  -- [player] = true
+
+-- ==================================================
+-- ========== PLAYER TELEPORT SYSTEM ==========
+-- ==================================================
+local selectedPlayer = nil
+local tpsEnabled = false
+local nearestEnabled = false
+local tpsConnection = nil
+local nearestConnection = nil
+local playersSectionOpen = false
+local refreshConn = nil
+
+local PlayersSection = Instance.new("Frame", Main)
+PlayersSection.Name = "PlayersSection"
+PlayersSection.BackgroundColor3 = Color3.fromRGB(0,0,0)
+PlayersSection.BorderSizePixel = 0
+PlayersSection.Position = UDim2.new(-1, -0.01, 0, 0)
+PlayersSection.Size = UDim2.new(0, 0, 1, 0)
+PlayersSection.Visible = false
+PlayersSection.ZIndex = 10
+
+Instance.new("UICorner", PlayersSection).CornerRadius = UDim.new(0,12)
+local pStroke = Instance.new("UIStroke", PlayersSection)
+pStroke.Color = THEME.Accent
+pStroke.Transparency = 0.4
+pStroke.Thickness = 2
+
+local PTitle = Instance.new("TextLabel", PlayersSection)
+PTitle.Size = UDim2.new(0.78, 0, 0.10, 0)
+PTitle.Position = UDim2.new(0.02, 0, 0, 0)
+PTitle.Text = "PLAYER"
+PTitle.Font = Enum.Font.GothamBlack
+PTitle.TextScaled = true
+PTitle.TextColor3 = THEME.Accent
+PTitle.BackgroundTransparency = 1
+PTitle.TextXAlignment = Enum.TextXAlignment.Left
+PTitle.ZIndex = 11
+
+local PClose = Instance.new("TextButton", PlayersSection)
+PClose.Size = UDim2.new(0.15, 0, 0.065, 0)
+PClose.Position = UDim2.new(0.83, 0, 0.02, 0)
+PClose.Text = "X"
+PClose.Font = Enum.Font.GothamBold
+PClose.TextScaled = true
+PClose.BackgroundColor3 = Color3.fromRGB(40,10,10)
+PClose.TextColor3 = THEME.Error
+PClose.BorderSizePixel = 0
+PClose.ZIndex = 12
+Instance.new("UICorner", PClose).CornerRadius = UDim.new(0,6)
+
+local btnBar = Instance.new("Frame", PlayersSection)
+btnBar.Size = UDim2.new(0.9, 0, 0.10, 0)
+btnBar.Position = UDim2.new(0.05, 0, 0.11, 0)
+btnBar.BackgroundTransparency = 1
+btnBar.ZIndex = 11
+
+local function makeBtn(text, color)
+	local btn = Instance.new("TextButton", btnBar)
+	btn.Size = UDim2.new(0.31, 0, 1, 0)
+	btn.BackgroundColor3 = Color3.fromRGB(30,30,40)
+	btn.TextColor3 = color
+	btn.Text = text
+	btn.Font = Enum.Font.GothamBlack
+	btn.TextScaled = true
+	btn.BorderSizePixel = 0
+	btn.AutoButtonColor = false
+	btn.ZIndex = 12
+	Instance.new("UICorner", btn).CornerRadius = UDim.new(0,8)
+	local stroke = Instance.new("UIStroke", btn)
+	stroke.Color = color
+	stroke.Transparency = 0.5
+	stroke.Thickness = 1.5
+	return btn
+end
+
+local tpsBtn = makeBtn("TPS", THEME.Warning)
+tpsBtn.Position = UDim2.new(0, 0, 0, 0)
+
+local tpBtn = makeBtn("TP", THEME.Accent)
+tpBtn.Position = UDim2.new(0.345, 0, 0, 0)
+
+local nearBtn = makeBtn("NEAR", THEME.Success)
+nearBtn.Position = UDim2.new(0.69, 0, 0, 0)
+
+local scrollHolder = Instance.new("Frame", PlayersSection)
+scrollHolder.Size = UDim2.new(0.9, 0, 0.55, 0)
+scrollHolder.Position = UDim2.new(0.05, 0, 0.225, 0)
+scrollHolder.BackgroundColor3 = Color3.fromRGB(8,8,12)
+scrollHolder.BorderSizePixel = 0
+scrollHolder.ZIndex = 11
+Instance.new("UICorner", scrollHolder).CornerRadius = UDim.new(0,8)
+local scrollStroke = Instance.new("UIStroke", scrollHolder)
+scrollStroke.Color = THEME.Accent
+scrollStroke.Transparency = 0.6
+scrollStroke.Thickness = 1
+
+local scroll = Instance.new("ScrollingFrame", scrollHolder)
+scroll.Size = UDim2.new(1, -8, 1, -8)
+scroll.Position = UDim2.new(0, 4, 0, 4)
+scroll.BackgroundTransparency = 1
+scroll.BorderSizePixel = 0
+scroll.ScrollBarThickness = 8
+scroll.ScrollBarImageColor3 = THEME.Accent
+scroll.ScrollBarImageTransparency = 0.2
+scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+scroll.ScrollingDirection = Enum.ScrollingDirection.Y
+scroll.ElasticBehavior = Enum.ElasticBehavior.WhenScrollable
+scroll.ZIndex = 12
+
+local listLayout = Instance.new("UIListLayout", scroll)
+listLayout.Padding = UDim.new(0, 5)
+listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+-- ========== BOTTOM BUTTONS (ECP + RESTART) ==========
+local pBottomBar = Instance.new("Frame", PlayersSection)
+pBottomBar.Size = UDim2.new(0.9, 0, 0.10, 0)
+pBottomBar.Position = UDim2.new(0.05, 0, 0.80, 0)
+pBottomBar.BackgroundTransparency = 1
+pBottomBar.ZIndex = 100
+pBottomBar.Active = true
+
+local ECPButton = Instance.new("TextButton", pBottomBar)
+ECPButton.Size = UDim2.new(0.485, 0, 1, 0)
+ECPButton.Position = UDim2.new(0, 0, 0, 0)
+ECPButton.Text = "ECP OFF"
+ECPButton.Font = Enum.Font.GothamBlack
+ECPButton.TextScaled = true
+ECPButton.BackgroundColor3 = Color3.fromRGB(30,30,40)
+ECPButton.TextColor3 = THEME.Error
+ECPButton.BorderSizePixel = 0
+ECPButton.AutoButtonColor = false
+ECPButton.Active = true
+ECPButton.ZIndex = 101
+ECPButton.Selectable = true
+Instance.new("UICorner", ECPButton).CornerRadius = UDim.new(0,8)
+local ecpStroke = Instance.new("UIStroke", ECPButton)
+ecpStroke.Color = Color3.fromRGB(255,0,0)
+ecpStroke.Transparency = 0.4
+ecpStroke.Thickness = 2
+
+local RestartButton = Instance.new("TextButton", pBottomBar)
+RestartButton.Size = UDim2.new(0.485, 0, 1, 0)
+RestartButton.Position = UDim2.new(0.515, 0, 0, 0)
+RestartButton.Text = "RESTART"
+RestartButton.Font = Enum.Font.GothamBlack
+RestartButton.TextScaled = true
+RestartButton.BackgroundColor3 = Color3.fromRGB(30,30,40)
+RestartButton.TextColor3 = THEME.Error
+RestartButton.BorderSizePixel = 0
+RestartButton.AutoButtonColor = false
+RestartButton.Active = true
+RestartButton.ZIndex = 101
+RestartButton.Selectable = true
+Instance.new("UICorner", RestartButton).CornerRadius = UDim.new(0,8)
+local rStroke = Instance.new("UIStroke", RestartButton)
+rStroke.Color = THEME.Error
+rStroke.Transparency = 0.4
+rStroke.Thickness = 2
+
+-- ==================================================
+-- ========== WEAPON DETECTION ==========
+-- ==================================================
+-- ✅ فحص إذا كان اللاعب يحمل Knife (في Backpack أو Character)
+local function hasKnife(p)
+	if not p then return false end
+	local backpack = p:FindFirstChild("Backpack")
+	if backpack and backpack:FindFirstChild("Knife") then return true end
+	local char = p.Character
+	if char and char:FindFirstChild("Knife") then return true end
+	return false
+end
+
+-- ✅ فحص إذا كان اللاعب يحمل Gun (في Backpack أو Character)
+local function hasGun(p)
+	if not p then return false end
+	local backpack = p:FindFirstChild("Backpack")
+	if backpack and backpack:FindFirstChild("Gun") then return true end
+	local char = p.Character
+	if char and char:FindFirstChild("Gun") then return true end
+	return false
+end
+
+-- ✅ دالة تحدد لون الـ ECP حسب الحالة
+-- Gun → أزرق
+-- Knife → أحمر
+-- الباقي → أخضر
+local function getECPColor(p)
+	if hasGun(p) then
+		return Color3.fromRGB(0, 100, 255)   -- 🔵 أزرق
+	end
+	if hasKnife(p) then
+		return Color3.fromRGB(255, 0, 0)     -- 🔴 أحمر
+	end
+	return Color3.fromRGB(0, 255, 0)         -- 🟢 أخضر
+end
+
+-- ✅ دالة تحدد ألوان صف القائمة
+-- ترجع: rowBg, rowText
+local function getRowColors(p)
+	if hasGun(p) then
+		return Color3.fromRGB(10, 40, 100), Color3.fromRGB(100, 180, 255)  -- 🔵 أزرق
+	end
+	if hasKnife(p) then
+		return Color3.fromRGB(80, 10, 10), Color3.fromRGB(255, 60, 60)     -- 🔴 أحمر
+	end
+	return Color3.fromRGB(10, 60, 25), Color3.fromRGB(0, 220, 100)          -- 🟢 أخضر
+end
+
+-- ==================================================
+-- ========== ECP SYSTEM ==========
+-- ==================================================
+local ecpEnabled = false
+local ecpConnection = nil
+local ecpHighlights = {}
+local ecpConnections = {}
+
+local function createECPHighlight(char, color)
+	local hl = Instance.new("Highlight")
+	hl.Name = "ECP_Highlight"
+	hl.FillColor = color
+	hl.FillTransparency = 0.25
+	hl.OutlineColor = Color3.fromRGB(0, 0, 0)
+	hl.OutlineTransparency = 0
+	hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+	hl.Adornee = char
+	hl.Parent = ScreenGui
+	return hl
+end
+
+local function applyECP(targetPlayer)
+	if not targetPlayer or targetPlayer == player then return end
+	local char = targetPlayer.Character
+	if not char then return end
+	
+	local hum = char:FindFirstChildOfClass("Humanoid")
+	if not hum then return end
+	if hum.Health <= 0 then
+		if ecpHighlights[targetPlayer] then
+			ecpHighlights[targetPlayer]:Destroy()
+			ecpHighlights[targetPlayer] = nil
+		end
+		return
+	end
+	
+	-- ✅ نحدد اللون المطلوب حسب الحالة
+	local newColor = getECPColor(targetPlayer)
+	
+	local existing = ecpHighlights[targetPlayer]
+	if not existing or not existing.Parent or existing.Adornee ~= char then
+		if existing then existing:Destroy() end
+		ecpHighlights[targetPlayer] = createECPHighlight(char, newColor)
+	else
+		if existing.FillColor ~= newColor then
+			existing.FillColor = newColor
+		end
+	end
+end
+
+local function removeECP(targetPlayer)
+	if ecpHighlights[targetPlayer] then
+		ecpHighlights[targetPlayer]:Destroy()
+		ecpHighlights[targetPlayer] = nil
+	end
+end
+
+local function hookECPPlayer(p)
+	if ecpConnections[p] then return end
+	local conn
+	conn = p.CharacterAdded:Connect(function(char)
+		if not ecpEnabled then return end
+		char:WaitForChild("Humanoid", 5)
+		task.wait(0.3)
+		if ecpEnabled then
+			applyECP(p)
+		end
+	end)
+	ecpConnections[p] = conn
+end
+
+local function unhookECPPlayer(p)
+	if ecpConnections[p] then
+		ecpConnections[p]:Disconnect()
+		ecpConnections[p] = nil
+	end
+end
+
+local function startECPLoop()
+	for _, p in ipairs(Players:GetPlayers()) do
+		if p ~= player then
+			hookECPPlayer(p)
+			applyECP(p)
+		end
+	end
+	
+	if ecpConnection then ecpConnection:Disconnect() end
+	ecpConnection = RunService.Heartbeat:Connect(function()
+		if not ecpEnabled then return end
+		for _, p in ipairs(Players:GetPlayers()) do
+			if p ~= player then
+				applyECP(p)
+			end
+		end
+	end)
+end
+
+local function enableECP()
+	if ecpEnabled then return end
+	ecpEnabled = true
+	ECPButton.Text = "ECP ON"
+	ECPButton.TextColor3 = THEME.Success
+	ECPButton.BackgroundColor3 = Color3.fromRGB(0, 80, 40)
+	ecpStroke.Color = THEME.Success
+	startECPLoop()
+	updateStatus("ECP: 🔵Gun 🔴Knife 🟢Normal", "success")
+end
+
+local function disableECP()
+	if not ecpEnabled then return end
+	ecpEnabled = false
+	ECPButton.Text = "ECP OFF"
+	ECPButton.TextColor3 = THEME.Error
+	ECPButton.BackgroundColor3 = Color3.fromRGB(30,30,40)
+	ecpStroke.Color = Color3.fromRGB(255,0,0)
+	
+	if ecpConnection then
+		ecpConnection:Disconnect()
+		ecpConnection = nil
+	end
+	
+	for p, hl in pairs(ecpHighlights) do
+		if hl then hl:Destroy() end
+	end
+	ecpHighlights = {}
+	
+	for p, conn in pairs(ecpConnections) do
+		if conn then conn:Disconnect() end
+	end
+	ecpConnections = {}
+	
+	updateStatus("ECP disabled", "warning")
+end
+
+ECPButton.MouseButton1Click:Connect(function()
+	if ecpEnabled then
+		disableECP()
+	else
+		enableECP()
+	end
+end)
+
+Players.PlayerAdded:Connect(function(p)
+	if ecpEnabled and p ~= player then
+		hookECPPlayer(p)
+		task.wait(0.5)
+		applyECP(p)
+	end
+end)
+
+Players.PlayerRemoving:Connect(function(p)
+	unhookECPPlayer(p)
+	removeECP(p)
+	whitelist[p] = nil
+end)
+
+-- ==================================================
+-- ========== ECP + LIST BACKPACK WATCHER ==========
+-- ==================================================
+local function watchBackpackECP(p)
+	local backpack = p:WaitForChild("Backpack", 10)
+	if not backpack then return end
+	backpack.ChildAdded:Connect(function()
+		if ecpEnabled then applyECP(p) end
+		if playersSectionOpen then refreshPlayerList() end
+	end)
+	backpack.ChildRemoved:Connect(function()
+		if ecpEnabled then applyECP(p) end
+		if playersSectionOpen then refreshPlayerList() end
+	end)
+end
+
+for _, p in ipairs(Players:GetPlayers()) do
+	if p ~= player then
+		task.spawn(watchBackpackECP, p)
+	end
+end
+
+Players.PlayerAdded:Connect(function(p)
+	if p ~= player then
+		task.spawn(watchBackpackECP, p)
+	end
+end)
+
+-- ==================================================
+-- ========== TELEPORT FUNCTIONS ==========
+-- ==================================================
+local function getHRP(targetPlayer)
+	if not targetPlayer or not targetPlayer.Character then return nil end
+	return targetPlayer.Character:FindFirstChild("HumanoidRootPart")
+end
+
+local function isDeadOrGone(p)
+	if not p or not p.Parent then return true end
+	if not p.Character then return true end
+	local hum = p.Character:FindFirstChildOfClass("Humanoid")
+	if not hum or hum.Health <= 0 then return true end
+	local hrp = p.Character:FindFirstChild("HumanoidRootPart")
+	if not hrp then return true end
+	return false
+end
+
+local function teleportTo(targetPlayer)
+	local myHRP = getHRP(player)
+	local targetHRP = getHRP(targetPlayer)
+	if not myHRP or not targetHRP then return false end
+	myHRP.CFrame = targetHRP.CFrame + Vector3.new(0, 3, 0)
+	return true
+end
+
+-- ==================================================
+-- ========== PLAYER LIST ==========
+-- ==================================================
+local function refreshPlayerList()
+	if not PlayersSection.Visible then return end
+	
+	for _, child in pairs(scroll:GetChildren()) do
+		if child:IsA("Frame") then
+			child:Destroy()
+		end
+	end
+	
+	local players = Players:GetPlayers()
+	local myHRP = getHRP(player)
+	local myPos = myHRP and myHRP.Position or Vector3.new()
+	
+	if nearestEnabled and myHRP then
+		table.sort(players, function(a, b)
+			if a == player then return false end
+			if b == player then return true end
+			local aHRP = getHRP(a)
+			local bHRP = getHRP(b)
+			local distA = aHRP and (aHRP.Position - myPos).Magnitude or math.huge
+			local distB = bHRP and (bHRP.Position - myPos).Magnitude or math.huge
+			return distA < distB
+		end)
+	end
+	
+	for i, p in ipairs(players) do
+		local isMe = (p == player)
+		local isWhitelisted = whitelist[p] == true
+		
+		local row = Instance.new("Frame", scroll)
+		row.Size = UDim2.new(1, -6, 0, 44)
+		row.BackgroundTransparency = 1
+		row.BorderSizePixel = 0
+		row.ZIndex = 12
+		row.LayoutOrder = i
+		
+		local btn = Instance.new("TextButton", row)
+		btn.Size = UDim2.new(0.82, -4, 1, 0)
+		btn.Position = UDim2.new(0, 0, 0, 0)
+		btn.BackgroundColor3 = Color3.fromRGB(15,15,22)
+		btn.TextColor3 = THEME.Text
+		btn.Font = Enum.Font.GothamBold
+		btn.TextScaled = true
+		btn.BorderSizePixel = 0
+		btn.AutoButtonColor = false
+		btn.ZIndex = 13
+		Instance.new("UICorner", btn).CornerRadius = UDim.new(0,8)
+		
+		local wBtn = Instance.new("TextButton", row)
+		wBtn.Size = UDim2.new(0.18, -4, 1, 0)
+		wBtn.Position = UDim2.new(0.82, 4, 0, 0)
+		wBtn.Text = "W"
+		wBtn.Font = Enum.Font.GothamBlack
+		wBtn.TextScaled = true
+		wBtn.BorderSizePixel = 0
+		wBtn.AutoButtonColor = false
+		wBtn.ZIndex = 13
+		Instance.new("UICorner", wBtn).CornerRadius = UDim.new(0,8)
+		
+		local isDead = false
+		local hum = p.Character and p.Character:FindFirstChildOfClass("Humanoid")
+		if not hum or hum.Health <= 0 then
+			isDead = true
+		end
+		
+		if isMe then
+			wBtn.TextColor3 = Color3.fromRGB(100,100,100)
+			wBtn.BackgroundColor3 = Color3.fromRGB(20,20,25)
+			wBtn.Text = "—"
+			local s = Instance.new("UIStroke", wBtn)
+			s.Color = Color3.fromRGB(60,60,60)
+			s.Thickness = 1
+			s.Transparency = 0.5
+		else
+			if isWhitelisted then
+				wBtn.BackgroundColor3 = Color3.fromRGB(0,80,40)
+				wBtn.TextColor3 = THEME.Success
+				local s = Instance.new("UIStroke", wBtn)
+				s.Color = THEME.Success
+				s.Thickness = 2
+				s.Transparency = 0.3
+			else
+				wBtn.BackgroundColor3 = Color3.fromRGB(40,40,45)
+				wBtn.TextColor3 = Color3.fromRGB(255,255,255)
+				local s = Instance.new("UIStroke", wBtn)
+				s.Color = Color3.fromRGB(255,255,255)
+				s.Thickness = 1.5
+				s.Transparency = 0.5
+			end
+		end
+		
+		local distText = ""
+		local tHRP = getHRP(p)
+		if myHRP and tHRP and not isDead then
+			local d = math.floor((tHRP.Position - myPos).Magnitude)
+			distText = " [" .. d .. "]"
+		end
+		
+		local nameStr = p.Name
+		if isMe then
+			nameStr = nameStr .. " (YOU)"
+		elseif isDead then
+			nameStr = nameStr .. " (DEAD)"
+		end
+		if isWhitelisted and not isMe then
+			nameStr = "🛡 " .. nameStr
+		end
+		
+		-- ✅ أيقونة حسب السلاح
+		if not isMe then
+			if hasGun(p) then
+				nameStr = "🔫 " .. nameStr
+			elseif hasKnife(p) then
+				nameStr = "🔪 " .. nameStr
+			end
+		end
+		
+		btn.Text = nameStr .. distText
+		
+		-- ✅ ألوان الصف حسب الحالة
+		local rowBg, rowText = getRowColors(p)
+		
+		if isDead then
+			btn.TextColor3 = Color3.fromRGB(255,80,80)
+			btn.BackgroundColor3 = Color3.fromRGB(40,10,10)
+		elseif selectedPlayer == p then
+			btn.BackgroundColor3 = Color3.fromRGB(0,80,160)
+			btn.TextColor3 = THEME.Text
+		else
+			btn.BackgroundColor3 = rowBg
+			btn.TextColor3 = rowText
+		end
+		
+		btn.MouseEnter:Connect(function()
+			if isDead then return end
+			if selectedPlayer ~= p then
+				local hoverBg = rowBg:Lerp(Color3.new(1,1,1), 0.15)
+				TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = hoverBg}):Play()
+			end
+		end)
+		btn.MouseLeave:Connect(function()
+			if isDead then return end
+			if selectedPlayer ~= p then
+				TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = rowBg}):Play()
+			end
+		end)
+		
+		btn.MouseButton1Click:Connect(function()
+			if isDead then
+				updateStatus("Can't select dead player!", "error")
+				return
+			end
+			
+			selectedPlayer = p
+			for _, other in pairs(scroll:GetChildren()) do
+				if other:IsA("Frame") then
+					local otherBtns = {}
+					for _, c in ipairs(other:GetChildren()) do
+						if c:IsA("TextButton") then
+							table.insert(otherBtns, c)
+						end
+					end
+					if #otherBtns >= 1 then
+						local mainBtn = otherBtns[1]
+						local otherPlayer = nil
+						for _, pl in ipairs(Players:GetPlayers()) do
+							if string.find(mainBtn.Text, pl.Name, 1, true) then
+								otherPlayer = pl
+								break
+							end
+						end
+						local otherHum = otherPlayer and otherPlayer.Character and otherPlayer.Character:FindFirstChildOfClass("Humanoid")
+						if not otherHum or otherHum.Health <= 0 then
+							mainBtn.BackgroundColor3 = Color3.fromRGB(40,10,10)
+							mainBtn.TextColor3 = Color3.fromRGB(255,80,80)
+						elseif otherPlayer then
+							local oBg, oText = getRowColors(otherPlayer)
+							mainBtn.BackgroundColor3 = oBg
+							mainBtn.TextColor3 = oText
+						else
+							mainBtn.BackgroundColor3 = Color3.fromRGB(15,15,22)
+							mainBtn.TextColor3 = THEME.Text
+						end
+					end
+				end
+			end
+			btn.BackgroundColor3 = Color3.fromRGB(0,80,160)
+			btn.TextColor3 = THEME.Text
+			updateStatus("Selected: " .. p.Name, "success")
+		end)
+		
+		wBtn.MouseButton1Click:Connect(function()
+			if isMe then return end
+			
+			if whitelist[p] then
+				whitelist[p] = nil
+				wBtn.BackgroundColor3 = Color3.fromRGB(40,40,45)
+				wBtn.TextColor3 = Color3.fromRGB(255,255,255)
+				local s = wBtn:FindFirstChildOfClass("UIStroke")
+				if s then
+					s.Color = Color3.fromRGB(255,255,255)
+					s.Transparency = 0.5
+				end
+				updateStatus("Removed " .. p.Name .. " from whitelist", "warning")
+			else
+				whitelist[p] = true
+				wBtn.BackgroundColor3 = Color3.fromRGB(0,80,40)
+				wBtn.TextColor3 = THEME.Success
+				local s = wBtn:FindFirstChildOfClass("UIStroke")
+				if s then
+					s.Color = THEME.Success
+					s.Transparency = 0.3
+				end
+				updateStatus("🛡 Whitelisted: " .. p.Name, "success")
+			end
+			
+			task.wait(0.05)
+			refreshPlayerList()
+		end)
+	end
+end
+
+-- ==================================================
+-- ========== TPS BUTTON ==========
+-- ==================================================
+tpsBtn.MouseButton1Click:Connect(function()
+	if not selectedPlayer then
+		updateStatus("Select a player first!", "error")
+		return
+	end
+	if selectedPlayer == player then
+		updateStatus("Can't TP to yourself!", "error")
+		return
+	end
+	if whitelist[selectedPlayer] then
+		updateStatus("🛡 " .. selectedPlayer.Name .. " is whitelisted!", "error")
+		return
+	end
+	
+	if tpsEnabled then
+		tpsEnabled = false
+		tpsBtn.TextColor3 = THEME.Warning
+		tpsBtn.BackgroundColor3 = Color3.fromRGB(30,30,40)
+		if tpsConnection then
+			tpsConnection:Disconnect()
+			tpsConnection = nil
+		end
+		updateStatus("TPS disabled", "warning")
+	else
+		tpsEnabled = true
+		tpsBtn.TextColor3 = THEME.Warning
+		tpsBtn.BackgroundColor3 = Color3.fromRGB(60,45,10)
+		
+		if tpsConnection then
+			tpsConnection:Disconnect()
+		end
+		
+		tpsConnection = RunService.Heartbeat:Connect(function()
+			if not tpsEnabled then return end
+			if nearestEnabled then return end
+			if not selectedPlayer or selectedPlayer == player then return end
+			
+			if isDeadOrGone(selectedPlayer) or whitelist[selectedPlayer] then
+				local myHRP = getHRP(player)
+				if not myHRP then return end
+				
+				local closest, closestDist = nil, math.huge
+				for _, p in ipairs(Players:GetPlayers()) do
+					if p ~= player and not isDeadOrGone(p) and not whitelist[p] then
+						local tHRP = getHRP(p)
+						if tHRP then
+							local d = (tHRP.Position - myHRP.Position).Magnitude
+							if d < closestDist then
+								closestDist = d
+								closest = p
+							end
+						end
+					end
+				end
+				
+				if closest then
+					selectedPlayer = closest
+					refreshPlayerList()
+					updateStatus("Switched to " .. closest.Name, "warning")
+				else
+					tpsEnabled = false
+					tpsBtn.TextColor3 = THEME.Warning
+					tpsBtn.BackgroundColor3 = Color3.fromRGB(30,30,40)
+					if tpsConnection then
+						tpsConnection:Disconnect()
+						tpsConnection = nil
+					end
+					updateStatus("No valid players - TPS stopped", "error")
+					return
+				end
+			end
+			
+			teleportTo(selectedPlayer)
+		end)
+		
+		updateStatus("TPS enabled -> " .. selectedPlayer.Name, "success")
+	end
+end)
+
+-- ==================================================
+-- ========== TP BUTTON (single) ==========
+-- ==================================================
+tpBtn.MouseButton1Click:Connect(function()
+	if not selectedPlayer then
+		updateStatus("Select a player first!", "error")
+		return
+	end
+	if selectedPlayer == player then
+		updateStatus("Can't TP to yourself!", "error")
+		return
+	end
+	if whitelist[selectedPlayer] then
+		updateStatus("🛡 " .. selectedPlayer.Name .. " is whitelisted!", "error")
+		return
+	end
+	if isDeadOrGone(selectedPlayer) then
+		updateStatus("Target is dead!", "error")
+		return
+	end
+	
+	local ok = teleportTo(selectedPlayer)
+	if ok then
+		updateStatus("Teleported to " .. selectedPlayer.Name, "success")
+		tpBtn.TextColor3 = THEME.Accent
+		tpBtn.BackgroundColor3 = Color3.fromRGB(0,50,100)
+		task.delay(0.3, function()
+			tpBtn.TextColor3 = THEME.Accent
+			tpBtn.BackgroundColor3 = Color3.fromRGB(30,30,40)
+		end)
+	else
+		updateStatus("Teleport failed", "error")
+	end
+end)
+
+-- ==================================================
+-- ========== NEAR BUTTON ==========
+-- ==================================================
+nearBtn.MouseButton1Click:Connect(function()
+	if nearestEnabled then
+		nearestEnabled = false
+		nearBtn.TextColor3 = THEME.Success
+		nearBtn.BackgroundColor3 = Color3.fromRGB(30,30,40)
+		if nearestConnection then
+			nearestConnection:Disconnect()
+			nearestConnection = nil
+		end
+		refreshPlayerList()
+		updateStatus("NEAR disabled", "warning")
+	else
+		nearestEnabled = true
+		nearBtn.TextColor3 = THEME.Success
+		nearBtn.BackgroundColor3 = Color3.fromRGB(0,60,30)
+		
+		refreshPlayerList()
+		
+		if nearestConnection then
+			nearestConnection:Disconnect()
+		end
+		
+		nearestConnection = RunService.Heartbeat:Connect(function()
+			if not nearestEnabled then return end
+			if not tpsEnabled then return end
+			
+			local myHRP = getHRP(player)
+			if not myHRP then return end
+			
+			local closest, closestDist = nil, math.huge
+			for _, p in ipairs(Players:GetPlayers()) do
+				if p ~= player and not isDeadOrGone(p) and not whitelist[p] then
+					local tHRP = getHRP(p)
+					if tHRP then
+						local d = (tHRP.Position - myHRP.Position).Magnitude
+						if d < closestDist then
+							closestDist = d
+							closest = p
+						end
+					end
+				end
+			end
+			
+			if closest then
+				teleportTo(closest)
+			end
+		end)
+		
+		updateStatus("NEAR enabled - closest first", "success")
+	end
+end)
+
+-- ==================================================
+-- ========== RESTART SYSTEM ==========
+-- ==================================================
+local restartRunning = false
+
+local function doFullRestart()
+	tpsEnabled = false
+	nearestEnabled = false
+	selectedPlayer = nil
+	if tpsConnection then tpsConnection:Disconnect() tpsConnection = nil end
+	if nearestConnection then nearestConnection:Disconnect() nearestConnection = nil end
+	if refreshConn then refreshConn:Disconnect() refreshConn = nil end
+	
+	tpsBtn.TextColor3 = THEME.Warning
+	tpsBtn.BackgroundColor3 = Color3.fromRGB(30,30,40)
+	tpBtn.TextColor3 = THEME.Accent
+	tpBtn.BackgroundColor3 = Color3.fromRGB(30,30,40)
+	nearBtn.TextColor3 = THEME.Success
+	nearBtn.BackgroundColor3 = Color3.fromRGB(30,30,40)
+	
+	for _, child in pairs(scroll:GetChildren()) do
+		if child:IsA("Frame") then
+			child:Destroy()
+		end
+	end
+	
+	for p, _ in pairs(whitelist) do
+		whitelist[p] = nil
+	end
+	
+	noclip = false
+	NoclipButton.Text = "OFF"
+	NoclipButton.TextColor3 = THEME.Error
+	NoclipButton.BackgroundColor3 = Color3.fromRGB(30,30,40)
+	if player.Character then
+		for _, part in pairs(player.Character:GetDescendants()) do
+			if part:IsA("BasePart") then
+				part.CanCollide = true
+			end
+		end
+		local head = player.Character:FindFirstChild("Head")
+		if head and head:IsA("BasePart") then
+			head.CanCollide = false
+		end
+		local hum = player.Character:FindFirstChildOfClass("Humanoid")
+		if hum then
+			hum.PlatformStand = false
+			hum:ChangeState(Enum.HumanoidStateType.Running)
+		end
+	end
+	
+	noclipPlayers = false
+	NoclipPlayersButton.Text = "PLAYERS OFF"
+	NoclipPlayersButton.TextColor3 = THEME.Error
+	NoclipPlayersButton.BackgroundColor3 = Color3.fromRGB(30,30,40)
+	if noclipPlayersConnection then
+		noclipPlayersConnection:Disconnect()
+		noclipPlayersConnection = nil
+	end
+	for _, conn in pairs(noclipCharConnections) do
+		if conn then conn:Disconnect() end
+	end
+	noclipCharConnections = {}
+	for _, otherPlayer in pairs(Players:GetPlayers()) do
+		if otherPlayer ~= player then
+			removeNoclipFromPlayer(otherPlayer)
+		end
+	end
+	
+	if ecpEnabled then
+		disableECP()
+	end
+	
+	if flyEnabled then
+		flyEnabled = false
+		stopFly()
+	end
+	FlyButton.Text = "OFF"
+	FlyButton.TextColor3 = THEME.Error
+	FlyButton.BackgroundColor3 = Color3.fromRGB(30,30,40)
+	
+	FlyKeyEnabled = true
+	updateKeyButton()
+	
+	flySpeed = 300
+	FlySpeedBox.Text = "300"
+	
+	infiniteJumpEnabled = false
+	InfiniteButton.Text = "OFF"
+	InfiniteButton.TextColor3 = THEME.Error
+	if infiniteJumpConnection then
+		infiniteJumpConnection:Disconnect()
+		infiniteJumpConnection = nil
+	end
+	
+	spaceJumpEnabled = false
+	SpaceButton.Text = "OFF"
+	SpaceButton.TextColor3 = THEME.Error
+	if spaceJumpConnection then
+		spaceJumpConnection:Disconnect()
+		spaceJumpConnection = nil
+	end
+	
+	originalSpeed = 16
+	originalJump = 50
+	SpeedBox.Text = ""
+	JumpBox.Text = ""
+	
+	if walkSpeedConnection then
+		walkSpeedConnection:Disconnect()
+		walkSpeedConnection = nil
+	end
+	if jumpPowerConnection then
+		jumpPowerConnection:Disconnect()
+		jumpPowerConnection = nil
+	end
+	
+	if player.Character then
+		local hum = player.Character:FindFirstChildOfClass("Humanoid")
+		if hum then
+			hum.WalkSpeed = 16
+			hum.UseJumpPower = true
+			hum.JumpPower = 50
+			hum.JumpHeight = 50/7
+			hum.PlatformStand = false
+			hum:ChangeState(Enum.HumanoidStateType.Running)
+		end
+	end
+	
+	if playersSectionOpen then
+		playersSectionOpen = false
+		TweenService:Create(PlayersSection, TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.In), {
+			Size = UDim2.new(0, 0, 1, 0)
+		}):Play()
+		task.delay(0.32, function()
+			if not playersSectionOpen then
+				PlayersSection.Visible = false
+			end
+		end)
+	end
+end
+
+RestartButton.MouseButton1Click:Connect(function()
+	if restartRunning then return end
+	restartRunning = true
+	
+	RestartButton.Text = "RESTART"
+	RestartButton.BackgroundColor3 = Color3.fromRGB(0,80,40)
+	RestartButton.TextColor3 = THEME.Success
+	rStroke.Color = THEME.Success
+	
+	task.wait(1)
+	
+	RestartButton.BackgroundColor3 = Color3.fromRGB(80,60,0)
+	RestartButton.TextColor3 = THEME.Warning
+	rStroke.Color = THEME.Warning
+	
+	for i = 5, 1, -1 do
+		RestartButton.Text = "RESTART " .. i
+		task.wait(1)
+	end
+	
+	local success, err = pcall(function()
+		doFullRestart()
+	end)
+	
+	if not success then
+		warn("Restart error: " .. tostring(err))
+	end
+	
+	startNoclip()
+	
+	RestartButton.BackgroundColor3 = Color3.fromRGB(30,30,40)
+	RestartButton.TextColor3 = THEME.Error
+	rStroke.Color = THEME.Error
+	RestartButton.Text = "RESTART"
+	
+	restartRunning = false
+	updateStatus("Script restarted", "success")
+end)
+
+-- ==================================================
+-- ========== CLOSE PLAYERS SECTION ==========
+-- ==================================================
+local function closePlayersSection()
+	if not playersSectionOpen then return end
+	playersSectionOpen = false
+	
+	if refreshConn then
+		refreshConn:Disconnect()
+		refreshConn = nil
+	end
+	if tpsConnection then tpsConnection:Disconnect() tpsConnection = nil end
+	if nearestConnection then nearestConnection:Disconnect() nearestConnection = nil end
+	tpsEnabled = false
+	nearestEnabled = false
+	selectedPlayer = nil
+	
+	tpsBtn.TextColor3 = THEME.Warning
+	tpsBtn.BackgroundColor3 = Color3.fromRGB(30,30,40)
+	tpBtn.TextColor3 = THEME.Accent
+	tpBtn.BackgroundColor3 = Color3.fromRGB(30,30,40)
+	nearBtn.TextColor3 = THEME.Success
+	nearBtn.BackgroundColor3 = Color3.fromRGB(30,30,40)
+	
+	TweenService:Create(PlayersSection, TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.In), {
+		Size = UDim2.new(0, 0, 1, 0)
+	}):Play()
+	
+	task.delay(0.32, function()
+		if not playersSectionOpen then
+			PlayersSection.Visible = false
+		end
+	end)
+end
+
+PClose.MouseButton1Click:Connect(function()
+	closePlayersSection()
+end)
+
+TeleportPlayersButton.MouseButton1Click:Connect(function()
+	if playersSectionOpen then
+		closePlayersSection()
+	else
+		playersSectionOpen = true
+		PlayersSection.Visible = true
+		PlayersSection.Size = UDim2.new(0, 0, 1, 0)
+		
+		TweenService:Create(PlayersSection, TweenInfo.new(0.35, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+			Size = UDim2.new(1, 0, 1, 0)
+		}):Play()
+		
+		task.wait(0.05)
+		refreshPlayerList()
+		
+		if refreshConn then refreshConn:Disconnect() end
+		refreshConn = RunService.Heartbeat:Connect(function()
+			if not playersSectionOpen then return end
+			if tick() % 0.5 < 0.02 then
+				refreshPlayerList()
+			end
+		end)
+		
+		updateStatus("Players list opened", "success")
+	end
+end)
+
+-- ========== RESPAWN HANDLER ==========
+local respawnConnection
+respawnConnection = player.CharacterAdded:Connect(function(char)
+	humanoid = char:WaitForChild("Humanoid")
+	
+	if originalSpeed then
+		humanoid.WalkSpeed = originalSpeed
+		
+		if walkSpeedConnection then
+			walkSpeedConnection:Disconnect()
+		end
+		walkSpeedConnection = humanoid:GetPropertyChangedSignal("WalkSpeed"):Connect(function()
+			if humanoid.WalkSpeed ~= originalSpeed then
+				humanoid.WalkSpeed = originalSpeed
+			end
+		end)
+	end
+	
+	if originalJump then
+		humanoid.UseJumpPower = true
+		humanoid.JumpPower = originalJump
+		humanoid.JumpHeight = originalJump/7
+		
+		if jumpPowerConnection then
+			jumpPowerConnection:Disconnect()
+		end
+		jumpPowerConnection = humanoid:GetPropertyChangedSignal("JumpPower"):Connect(function()
+			if humanoid.JumpPower ~= originalJump then
+				humanoid.JumpPower = originalJump
+			end
+		end)
+	end
+	
+	if infiniteJumpEnabled then
+		startInfiniteJump()
+	end
+	
+	if spaceJumpEnabled then
+		startSpaceJump()
+	end
+	
+	if flyEnabled then
+		task.wait(0.1)
+		stopFly()
+		startFly()
+	end
+	
+	if noclip then
+		task.wait(0.05)
+		for _, part in pairs(char:GetDescendants()) do
+			if part:IsA("BasePart") then
+				part.CanCollide = false
+			end
+		end
+	end
+	
+	if noclipPlayers then
+		startNoclipPlayersLoop()
+	end
+	
+	updateStatus("Character loaded", "success")
+end)
+
+local removingConnection
+removingConnection = player.CharacterRemoving:Connect(function()
+	if flyEnabled then
+		disableFly()
+	end
+end)
+
+-- ==================================================
+-- ========== P KEY (Hide/Show GUI) ==========
+-- ==================================================
+local pKeyEnabled = true
+local guiHidden = false
+
+local function updatePKeyButton()
+	if pKeyEnabled then
+		PKeyButton.Text = "P ON"
+		PKeyButton.TextColor3 = THEME.Success
+		PKeyButton.BackgroundColor3 = Color3.fromRGB(0,60,30)
+	else
+		PKeyButton.Text = "P OFF"
+		PKeyButton.TextColor3 = THEME.Error
+		PKeyButton.BackgroundColor3 = Color3.fromRGB(30,30,40)
+	end
+end
+
+PKeyButton.MouseButton1Click:Connect(function()
+	pKeyEnabled = not pKeyEnabled
+	updatePKeyButton()
+	updateStatus("Key P " .. (pKeyEnabled and "enabled" or "disabled"), pKeyEnabled and "success" or "warning")
+end)
+
+local function toggleGuiVisibility()
+	guiHidden = not guiHidden
+	if guiHidden then
+		TweenService:Create(Main, TweenInfo.new(0.25, Enum.EasingStyle.Quint, Enum.EasingDirection.In), {
+			Size = UDim2.new(0, 0, 0, 0)
+		}):Play()
+		task.delay(0.26, function()
+			if guiHidden then
+				Main.Visible = false
+			end
+		end)
+	else
+		Main.Visible = true
+		Main.Size = UDim2.new(0, 0, 0, 0)
+		TweenService:Create(Main, TweenInfo.new(0.35, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+			Size = UDim2.new(0.19, 0, 0.68, 0)
+		}):Play()
+	end
+end
+
+local pKeyConnection
+pKeyConnection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if gameProcessed then return end
+	if not pKeyEnabled then return end
+	if input.KeyCode == Enum.KeyCode.P then
+		toggleGuiVisibility()
+	end
+end)
+
+-- ========== CLOSE BUTTON (X) ==========
+CloseButton.MouseButton1Click:Connect(function()
+	if playersSectionOpen then
+		playersSectionOpen = false
+		if refreshConn then refreshConn:Disconnect() refreshConn = nil end
+		if tpsConnection then tpsConnection:Disconnect() tpsConnection = nil end
+		if nearestConnection then nearestConnection:Disconnect() nearestConnection = nil end
+		tpsEnabled = false
+		nearestEnabled = false
+	end
+	
+	if noclip then
+		noclip = false
+		NoclipButton.Text = "OFF"
+		NoclipButton.TextColor3 = THEME.Error
+		NoclipButton.BackgroundColor3 = Color3.fromRGB(30,30,40)
+		if player.Character then
+			for _, part in pairs(player.Character:GetDescendants()) do
+				if part:IsA("BasePart") then
+					part.CanCollide = true
+				end
+			end
+			local head = player.Character:FindFirstChild("Head")
+			if head and head:IsA("BasePart") then
+				head.CanCollide = false
+			end
+		end
+	end
+	
+	if noclipPlayers then
+		noclipPlayers = false
+		NoclipPlayersButton.Text = "PLAYERS OFF"
+		NoclipPlayersButton.TextColor3 = THEME.Error
+		NoclipPlayersButton.BackgroundColor3 = Color3.fromRGB(30,30,40)
+		if noclipPlayersConnection then
+			noclipPlayersConnection:Disconnect()
+			noclipPlayersConnection = nil
+		end
+		for _, conn in pairs(noclipCharConnections) do
+			if conn then conn:Disconnect() end
+		end
+		noclipCharConnections = {}
+		for _, otherPlayer in pairs(Players:GetPlayers()) do
+			if otherPlayer ~= player then
+				removeNoclipFromPlayer(otherPlayer)
+			end
+		end
+	end
+	
+	if ecpEnabled then
+		disableECP()
+	end
+	
+	if flyEnabled then
+		flyEnabled = false
+		stopFly()
+		FlyButton.Text = "OFF"
+		FlyButton.TextColor3 = THEME.Error
+		FlyButton.BackgroundColor3 = Color3.fromRGB(30,30,40)
+	end
+	
+	if infiniteJumpEnabled then
+		infiniteJumpEnabled = false
+		InfiniteButton.Text = "OFF"
+		InfiniteButton.TextColor3 = THEME.Error
+		if infiniteJumpConnection then
+			infiniteJumpConnection:Disconnect()
+			infiniteJumpConnection = nil
+		end
+	end
+	
+	if spaceJumpEnabled then
+		spaceJumpEnabled = false
+		SpaceButton.Text = "OFF"
+		SpaceButton.TextColor3 = THEME.Error
+		if spaceJumpConnection then
+			spaceJumpConnection:Disconnect()
+			spaceJumpConnection = nil
+		end
+	end
+	
+	if originalSpeed ~= 16 then
+		originalSpeed = 16
+		SpeedBox.Text = ""
+		if humanoid then
+			humanoid.WalkSpeed = 16
+		end
+		if walkSpeedConnection then
+			walkSpeedConnection:Disconnect()
+			walkSpeedConnection = nil
+		end
+	end
+	
+	if originalJump ~= 50 then
+		originalJump = 50
+		JumpBox.Text = ""
+		if humanoid then
+			humanoid.UseJumpPower = true
+			humanoid.JumpPower = 50
+			humanoid.JumpHeight = 50/7
+		end
+		if jumpPowerConnection then
+			jumpPowerConnection:Disconnect()
+			jumpPowerConnection = nil
+		end
+	end
+	
+	if humanoid then
+		humanoid.PlatformStand = false
+	end
+	if bodyVelocity then
+		bodyVelocity:Destroy()
+		bodyVelocity = nil
+	end
+	if bodyGyro then
+		bodyGyro:Destroy()
+		bodyGyro = nil
+	end
+	if flyConnection then
+		flyConnection:Disconnect()
+		flyConnection = nil
+	end
+	
+	if flyKeyConnection then
+		flyKeyConnection:Disconnect()
+		flyKeyConnection = nil
+	end
+	if pKeyConnection then
+		pKeyConnection:Disconnect()
+		pKeyConnection = nil
+	end
+	if respawnConnection then
+		respawnConnection:Disconnect()
+		respawnConnection = nil
+	end
+	if removingConnection then
+		removingConnection:Disconnect()
+		removingConnection = nil
+	end
+	if noclipConnection then
+		noclipConnection:Disconnect()
+		noclipConnection = nil
+	end
+	
+	local closeTween = TweenService:Create(Main, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+		Size = UDim2.new(0, 0, 0, 0)
+	})
+	closeTween:Play()
+	closeTween.Completed:Connect(function()
+		ScreenGui:Destroy()
+	end)
+end)
+
+-- Animation (فتح سلس)
+TweenService:Create(Main, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+	Size = UDim2.new(0.19, 0, 0.68, 0)
+}):Play()
+
+-- ✅ عند بدء السكربت
+task.wait(0.5)
+FlyKeyEnabled = true
+updateKeyButton()
+pKeyEnabled = true
+updatePKeyButton()
